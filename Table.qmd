@@ -8,7 +8,7 @@ format:
     grid: 
       body-width: 1500px
 ---
-
+#### https://github.com/arnavchauhan7/top_ai_stock_analysis
 ```{r message=FALSE,warning=FALSE,echo=FALSE}
 # List of required packages
 packages = c("quantmod", "lubridate", "tidyverse", "htmltools", "purrr", "plotly", "gt", "gtExtras")
