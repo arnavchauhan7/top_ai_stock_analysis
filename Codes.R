@@ -208,6 +208,12 @@ current_resolution = current_resolution[!is.na(current_resolution)]
 # Calculate table width based on screen resolution
 table_width = (current_resolution[1] * 78.125 / 100) - 4
 
+# NOTE: In case you are using R Posit Cloud,
+# please note that lines 199 to 209 of the code in the Codes.
+# R script should be commented out, and line 215 should be uncommented to ensure proper execution.
+
+# table_width = 1496
+
 # Generates a table summarizing top AI stock performance
 table_final = req_df %>%
   mutate(Currency = ifelse(Currency == "GBp", yes = "pound", no = "dollar")) %>%
@@ -348,4 +354,4 @@ table_final = req_df %>%
 # View the table
 table_final
 
-gtsave(data = table_final,filename = "Table_Final.html")
+gtsave(data = table_final,filename = "Table_Final.png")
