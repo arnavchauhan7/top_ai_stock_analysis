@@ -354,4 +354,4 @@ table_final = req_df %>%
 # View the table
 table_final
 
-gtsave(data = table_final,filename = "Table_Final.png")
+# gtsave(data = table_final,filename = "Table_Final.html")
