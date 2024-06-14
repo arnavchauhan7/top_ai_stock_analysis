@@ -1,6 +1,6 @@
 # Top AI Stock Performance Analysis (Posit Table Contest 2024)
 
-This repository contains code for an R script that analyzes the stock performance of the top 14 AI companies according to [Stash](https://www.stash.com/learn/top-ai-companies/) and presents the results in a visually appealing table using the `gt` and `gtExtras` packages.
+This repository contains code for an R script that analyzes the stock performance of the top 14 AI companies (May 2024) according to [Stash](https://www.stash.com/learn/top-ai-companies/) and presents the results in a visually appealing table using the `gt` and `gtExtras` packages.
 
 ## Functionality
 
