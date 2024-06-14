@@ -58,7 +58,7 @@ The script performs the following tasks:
 
     -   Run the script `Codes.R`. This will generate a table object named `table_final`.
 
-    -   Use the `table_final` command to view the table in the R console.
+    -   Use the `table_final` command to view the table in the Viewer.
 
 **Note:** This script retrieves data directly from Yahoo Finance.
 
