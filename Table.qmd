@@ -1,0 +1,371 @@
+---
+title: "Top AI Companies Stock Performance (Posit Table Contest 2024)"
+author: "Arnav Chauhan"
+date: "2024-06-14"
+format: 
+  html:
+    page-layout: full
+    grid: 
+      body-width: 1500px
+---
+
+```{r message=FALSE,warning=FALSE,echo=FALSE}
+# List of required packages
+packages = c("quantmod", "lubridate", "tidyverse", "htmltools", "purrr", "plotly", "gt", "gtExtras")
+
+# Function to check if a package is installed
+is_installed = function(pkg) {
+  is.element(pkg, installed.packages()[,1])
+}
+
+# Loop over the list of packages and install if missing
+for (pkg in packages) {
+  if (!is_installed(pkg)) {
+    install.packages(pkg, dependencies = TRUE)
+  }
+  library(pkg, character.only = TRUE)
+}
+
+# Set working directory
+
+# Read stock data from CSV file
+stock_data = read_csv("AI_Company_Data.csv")
+
+# Function to get table data for a given company ticker
+get_table_data = function(company_ticker) {
+  # Retrieve stock data for the last 52 weeks
+  stock_data_52week_xts = quantmod::getSymbols.yahoo(company_ticker, from = Sys.Date() - weeks(52), to = Sys.Date(), auto.assign = FALSE)
+  
+  # Convert xts object to data frame
+  stock_data_52week = data.frame(date = index(stock_data_52week_xts), coredata(stock_data_52week_xts))
+  stock_data_52week = tibble(stock_data_52week) %>% na.omit()
+  
+  # Select relevant columns and rename them
+  stock_data_52week = stock_data_52week %>%
+    select(date,
+           paste0(company_ticker, ".Adjusted"),
+           paste0(company_ticker, ".Volume"))
+  colnames(stock_data_52week)[2] = "Adj_Close"
+  colnames(stock_data_52week)[3] = "Volume"
+  
+  # Calculate various metrics based on stock data
+  prev_day_price = tail(stock_data_52week %>% arrange(date), n = 2)[[1,"Adj_Close"]]
+  current_price = tail(stock_data_52week %>% arrange(date), n = 1)['Adj_Close'][[1]]
+  pct_chng_prev_price = ((current_price - prev_day_price) / prev_day_price)
+  high_52week = max(stock_data_52week$Adj_Close, na.rm = TRUE)
+  low_52week = min(stock_data_52week$Adj_Close, na.rm = TRUE)
+  current_vol = tail(stock_data_52week %>% arrange(date), n = 1)['Volume'][[1]]
+  prev_day_vol = tail(stock_data_52week %>% arrange(date), n = 2)[[1,"Volume"]]
+  pct_chng_prev_vol = (current_vol - prev_day_vol) / prev_day_vol
+  
+  # Create table data as a tibble
+  table_data = tibble(
+    Ticker = company_ticker,
+    current_price = current_price,
+    pct_chng_prev_price = pct_chng_prev_price,
+    high_52_week = high_52week,
+    low_52_week = low_52week,
+    current_vol = current_vol,
+    pct_chng_prev_vol
+  )
+  
+  # Print status message
+  # print(paste0(company_ticker, " Done!"))
+  
+  return(table_data)
+}
+
+# Function to plot price trend for a given company ticker
+plot_price_trend = function(company_ticker) {
+  # Retrieve price data for the last 52 weeks
+  price_plot_data_xts = quantmod::getSymbols.yahoo(company_ticker, from = Sys.Date() - weeks(52), to = Sys.Date(), auto.assign = FALSE)
+  
+  # Convert xts object to data frame
+  price_plot_data_df = data.frame(date = index(price_plot_data_xts), coredata(price_plot_data_xts))
+  price_plot_data_df = tibble(price_plot_data_df) %>% na.omit()
+  
+  # Select relevant column and rename it
+  price_plot_data_df = price_plot_data_df %>% select(date, paste0(company_ticker, ".Adjusted"))
+  colnames(price_plot_data_df)[2] = "Adj_Close"
+  
+  # Calculate start and end prices
+  start_price = head(price_plot_data_df %>% arrange(date), n = 1)['Adj_Close'][[1]]
+  end_price = tail(price_plot_data_df %>% arrange(date), n = 1)['Adj_Close'][[1]]
+  
+  # Find highest and lowest points
+  highest_point = price_plot_data_df %>% filter(Adj_Close == max(Adj_Close))
+  lowest_point = price_plot_data_df %>% filter(Adj_Close == min(Adj_Close))
+  
+  # Plot price trend
+  ggplot(price_plot_data_df, aes(x = date, y = Adj_Close)) +
+    geom_area(fill = ifelse(end_price > start_price, "#27b7ac", "#d82466"), alpha = 0.3) +
+    geom_line(color = ifelse(end_price > start_price, "#27b7ac", "#d82466"), size = 2) +
+    geom_point(data = highest_point, aes(x = date, y = Adj_Close), color = "#27b7ac", size = 10) +
+    geom_point(data = lowest_point, aes(x = date, y = Adj_Close), color = "#d82466", size = 10) +
+    expand_limits(y = 0) +
+    theme_void()
+}
+
+# Function to plot weekly return trend for a given company ticker
+plot_weekly_return_trend = function(company_ticker) {
+  # Retrieve price data for the last 52 weeks
+  return_plot_data_xts = quantmod::getSymbols.yahoo(company_ticker, from = Sys.Date() - weeks(52), to = Sys.Date(), auto.assign = FALSE)
+  
+  # Convert xts object to data frame
+  return_plot_data_df = data.frame(date = index(return_plot_data_xts), coredata(return_plot_data_xts))
+  return_plot_data_df = tibble(return_plot_data_df) %>% na.omit()
+  
+  # Filter data for Fridays only
+  return_plot_data_df = return_plot_data_df %>% filter(weekdays(date) == "Friday")
+  
+  # Select relevant column and rename it
+  return_plot_data_df = return_plot_data_df %>% select(date, paste0(company_ticker, ".Adjusted"))
+  colnames(return_plot_data_df)[2] = "Adj_Close"
+  
+  # Calculate percentage change in price
+  return_plot_data_df = return_plot_data_df %>% 
+    mutate(pct_change_in_price = (Adj_Close / lag(Adj_Close, 1)) - 1)
+  
+  # Assign color based on price change direction
+  return_plot_data_df$color = ifelse(return_plot_data_df$pct_change_in_price > 0, "#27b7ac", "#d82466")
+  
+  return_plot_data_df$date = as.factor(return_plot_data_df$date)
+  
+  # Plot weekly return trend
+  ggplot(return_plot_data_df, aes(x = date, y = pct_change_in_price, fill = color)) +
+    geom_col(width = 0.9) + 
+    scale_fill_identity() +
+    scale_x_discrete(expand = c(0, 0)) +
+    theme_void()
+}
+
+# Function to plot volume trend for a given company ticker
+plot_volume_trend = function(company_ticker) {
+  
+  # Retrieve volume data for the last 52 weeks
+  volume_plot_data_xts = quantmod::getSymbols.yahoo(company_ticker, from = Sys.Date() - 52, to = Sys.Date(), auto.assign = FALSE)
+  
+  # Convert xts object to data frame
+  volume_plot_data_df = data.frame(date = index(volume_plot_data_xts), coredata(volume_plot_data_xts))
+  volume_plot_data_df = tibble(volume_plot_data_df) %>% na.omit()
+  
+  # Select relevant column and rename it
+  volume_plot_data_df = volume_plot_data_df %>% select(date, paste0(company_ticker, ".Volume"))
+  colnames(volume_plot_data_df)[2] = "Volume"
+  
+  # Calculate start and end volume
+  start_vol = head(volume_plot_data_df %>% arrange(date), n = 1)['Volume'][[1]]
+  end_vol = tail(volume_plot_data_df %>% arrange(date), n = 1)['Volume'][[1]]
+  
+  # Find highest and lowest volume
+  highest_vol = volume_plot_data_df %>% filter(Volume == max(Volume))
+  lowest_vol = volume_plot_data_df %>% filter(Volume == min(Volume))
+  
+  # Plot volume trend
+  ggplot(volume_plot_data_df, aes(x = date, y = Volume)) +
+    geom_area(fill = ifelse(end_vol > start_vol, "#27b7ac", "#d82466"), alpha = 0.3) +
+    geom_line(color = ifelse(end_vol > start_vol, "#27b7ac", "#d82466"), size = 2) +
+    geom_point(data = highest_vol, aes(x = date, y = Volume), color = "#27b7ac", size = 10) +
+    geom_point(data = lowest_vol, aes(x = date, y = Volume), color = "#d82466", size = 10) +
+    expand_limits(y = 0) +
+    theme_void()
+}
+
+# Retrieve data for the current date
+data_for_date_xts = getSymbols("MSFT", from = Sys.Date() - 7, to = Sys.Date(), auto.assign = FALSE)
+data_for_date = data.frame(date = index(data_for_date_xts), coredata(data_for_date_xts))
+data_for_date = tibble(data_for_date) %>% na.omit()
+
+# Get the latest date
+latest_date = tail(data_for_date %>% arrange(date), n = 1)["date"][[1]]
+latest_date = ymd(latest_date)
+latest_date_col = format(latest_date, "%d %b %Y")
+latest_date_fmt = format(latest_date, "%B %d, %Y")
+
+# Generate table data for all companies
+result = map_df(stock_data$Ticker, ~ get_table_data(.x))
+
+# Join original stock data with generated table data
+final_df = stock_data %>% inner_join(result, by = c("Ticker" = "Ticker"))
+
+# Add logo path, remove Description column, and modify column names
+final_df = final_df %>% 
+  mutate(logo = paste0("Logos\\",Ticker,".png"))%>% 
+  select(-Description)%>% 
+  mutate(Price_Trend = Ticker,
+         Return_Trend = Ticker,
+         Volume_Trend = Ticker)%>% 
+  mutate(`Company Name` = str_to_upper(`Company Name`)) %>% 
+  mutate(Ticker = paste0("SYMBOL: ", Ticker))
+
+# Update the company name for a specific ticker
+final_df[final_df$Ticker == "SYMBOL: IBM", "Company Name"] = "IBM CORPORATION"
+
+# Select relevant columns for the table
+req_df = final_df %>% 
+  select(logo,`Company Name`,Ticker,Currency,current_price,
+         pct_chng_prev_price,Return_Trend,high_52_week,low_52_week,
+         Price_Trend,current_vol,pct_chng_prev_vol,Volume_Trend)
+
+# Suppress warning and get current screen resolution
+suppressWarnings(
+  current_resolution <- system("wmic path Win32_VideoController get CurrentHorizontalResolution,CurrentVerticalResolution /format:value", intern = TRUE)  %>%
+    strsplit("=") %>%
+    unlist() %>%
+    as.double()
+)
+
+current_resolution = current_resolution[!is.na(current_resolution)]
+
+# Calculate table width based on screen resolution
+table_width = (current_resolution[1] * 78.125 / 100) - 4
+
+# NOTE: In case you are using R Posit Cloud,
+# please note that lines 199 to 209 of the code in the Codes.
+# R script should be commented out, and line 215 should be uncommented to ensure proper execution.
+
+# table_width = 1496
+
+# Generates a table summarizing top AI stock performance
+table_final = req_df %>%
+  mutate(Currency = ifelse(Currency == "GBp", yes = "pound", no = "dollar")) %>%
+  gt() %>%
+  opt_table_font(font = "Segoe UI") %>%
+  tab_options(table.width = px(table_width)) %>%
+  cols_align(columns = everything(), align = "center") %>%
+  gt_merge_stack(
+    col1 = `Company Name`,
+    col2 = Ticker,
+    font_size = c(px(12), px(11)),
+    font_weight = c('bold', 'bold'),
+    small_cap = FALSE
+  ) %>%
+  cols_align(columns = logo, align = "right") %>%
+  cols_align(columns = `Company Name`, align = "left") %>%
+  gt_img_rows(
+    columns = logo,
+    img_source = "local",
+    height = c(18, 17, 27, 47, 9, 24, 35, 20, 18, 16, 32, 16, 11, 24)
+  ) %>%
+  fmt_currency(
+    columns = c(current_price, high_52_week, low_52_week),
+    currency = from_column('Currency'),
+    decimals = 2
+  ) %>%
+  cols_hide(Currency) %>%
+  cols_label(
+    current_price = html(paste0("Current Price", br(), "(", latest_date_col, ")")),
+    logo = "",
+    `Company Name` = "Company",
+    high_52_week = "52-Week High",
+    low_52_week = "52-Week Low",
+    current_vol = html(paste0("Current", br(), "Volume")),
+    Price_Trend = "Price Trend",
+    Return_Trend = "Weekly % Change in Price",
+    Volume_Trend = "Volume Trend",
+    pct_chng_prev_price = html(paste0("% Change in Price", br(), "(Daily)")),
+    pct_chng_prev_vol = html(paste0("% Change in Volume", br(), "(Daily)"))
+  ) %>%
+  tab_style(
+    style = cell_text(v_align = "middle"),
+    locations = cells_column_labels(everything())
+  ) %>%
+  tab_options(
+    heading.background.color = "white",
+    heading.align = "left",
+    heading.border.bottom.color = "#10100F",
+    heading.title.font.size = px(26),
+    heading.subtitle.font.size = px(14),
+    heading.title.font.weight = "bold",
+    heading.subtitle.font.weight = "bold",
+    column_labels.font.weight = "bold",
+    column_labels.padding = px(20),
+    source_notes.padding = px(16),
+    table.font.size = px(12),
+    column_labels.background.color = "#10100F",
+    source_notes.background.color = "#10100F",
+    column_labels.border.lr.color = "#10100F",
+    column_labels.border.bottom.color = "#10100F",
+    column_labels.border.top.color = "#10100F",
+    table.border.top.color = "#10100F",
+    table.border.bottom.color = "#10100F",
+    source_notes.border.lr.color = "#10100F",
+    table_body.border.bottom.color = "#10100F",
+    heading.border.lr.color = "#10100F"
+  ) %>%
+  opt_table_lines(extent = "default") %>%
+  opt_row_striping(row_striping = TRUE) %>%
+  tab_source_note(md(paste0("**Data Last Updated: ", latest_date_fmt, "**"))) %>%
+  fmt_number(
+    decimals = 2,
+    columns = current_vol,
+    scale_by = 1/1000000,
+    pattern = "{x}M"
+  ) %>%
+  cols_width(
+    `Company Name` ~ round(table_width * 13 / 100, 0),
+    logo ~ round(table_width * 6.67 / 100, 0),
+    current_price ~ round(table_width * 6.78 / 100, 0),
+    pct_chng_prev_price ~ round(table_width * 7.82 / 100, 0),
+    high_52_week ~ round(table_width * 5.23 / 100, 0),
+    low_52_week ~ round(table_width * 5.23 / 100, 0),
+    current_vol ~ round(table_width * 6.67 / 100, 0),
+    Price_Trend ~ round(table_width * 13.33 / 100, 0),
+    Return_Trend ~ round(table_width * 13.33 / 100, 0),
+    Volume_Trend ~ round(table_width * 13.33 / 100, 0),
+    pct_chng_prev_vol ~ round(table_width * 8.6 / 100, 0)
+  ) %>% 
+  tab_header(title = "TOP AI STOCK PERFORMANCE",
+             subtitle = "This table summarises the performance of top 14 AI Stocks by Market Cap (May 2024)") %>% 
+  text_transform(
+    locations = cells_body(columns = 'Price_Trend'),
+    fn = function(company_ticker) {
+      map(company_ticker, ~ plot_price_trend(company_ticker = .x)) %>%
+        ggplot_image(height = px(round(table_width * 4.67 / 100, 0)), aspect_ratio = 2.85)
+    }
+  ) %>%
+  text_transform(
+    locations = cells_body(columns = 'Return_Trend'),
+    fn = function(company_ticker) {
+      map(company_ticker, ~ plot_weekly_return_trend(company_ticker = .x)) %>%
+        ggplot_image(height = px(round(table_width * 4.67 / 100, 0)), aspect_ratio = 2.5)
+    }
+  ) %>%
+  text_transform(
+    locations = cells_body(columns = 'Volume_Trend'),
+    fn = function(company_ticker) {
+      map(company_ticker, ~ plot_volume_trend(company_ticker = .x)) %>%
+        ggplot_image(height = px(round(table_width * 4.67 / 100, 0)), aspect_ratio = 2.75)
+    }
+  ) %>%
+  text_transform(
+    locations = cells_body(columns = c(pct_chng_prev_price)),
+    fn = function(x) {
+      x = as.numeric(x)
+      formatted_values = sprintf("%.2f%%", abs(x) * 100)
+      ifelse(
+        x > 0,
+        paste0("<span style='color:#27b7ac'>&#9650;</span> ", formatted_values),
+        paste0("<span style='color:#d82466'>&#9660;</span> -", formatted_values)
+      )
+    }
+  ) %>%
+  text_transform(
+    locations = cells_body(columns = c(pct_chng_prev_vol)),
+    fn = function(x) {
+      x = as.numeric(x)
+      formatted_values = sprintf("%.2f%%", abs(x) * 100)
+      ifelse(
+        x > 0,
+        paste0("<span style='color:#27b7ac'>&#9650;</span> ", formatted_values),
+        paste0("<span style='color:#d82466'>&#9660;</span> -", formatted_values)
+      )
+    }
+  )
+
+# View the table
+table_final
+
+# gtsave(data = table_final,filename = "Table_Final.png")
+
+```
