@@ -2,6 +2,9 @@
 
 This repository contains code for an R script that analyzes the stock performance of the top 14 AI companies (May 2024) according to [Stash](https://www.stash.com/learn/top-ai-companies/) and presents the results in a visually appealing table using the `gt` and `gtExtras` packages.
 
+
+**Note: In case you are using R Posit Cloud, please note that lines 199 to 209 of the code in the `Codes.R` script should be commented out, and line 212 should be uncommented to ensure proper execution.** 
+
 ## Functionality
 
 The script performs the following tasks:
