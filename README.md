@@ -56,9 +56,9 @@ The script performs the following tasks:
 
     -   Replace `"AI_Company_Data.csv"` with the path to your actual CSV file containing AI Company Data (optional, for reference).
 
-    -   Run the script (`source('your_script_name.R')`). This will generate a table object named `table_final`.
+    -   Run the script `Codes.R`. This will generate a table object named `table_final`.
 
-    -   Use the `print(table_final)` command to view the table in the R console.
+    -   Use the `table_final` command to view the table in the R console.
 
 **Note:** This script retrieves data directly from Yahoo Finance.
 
